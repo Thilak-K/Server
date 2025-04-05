@@ -8,6 +8,7 @@ const { cleanEnv, str, num } = require("envalid");
 const Joi = require("joi");
 const Customer = require("./models/Customers.js");
 const Billing = require("./models/Billing.js");
+const Bill =require("./models/Bill.js");
 
 
 
@@ -89,6 +90,25 @@ const billingSchema = Joi.object({
 
 });
 
+// Bill Schema Validation with Joi
+const billSchema = Joi.object({
+  customerId: Joi.string()
+    .pattern(/^CUST-[a-zA-Z0-9]{12}$/)
+    .required(),
+  items: Joi.array()
+    .items(
+      Joi.object({
+        itemId: Joi.string()
+          .pattern(/^ITEM-[A-Z0-9]{7}$/)
+          .required(),
+        quantity: Joi.number().min(1).required(),
+      })
+    )
+    .min(1)
+    .required(),
+  total: Joi.number().min(0).required(),
+});
+
 // Customer Routes
 app.post(`/customer/submitCustomers`, async (req, res, next) => {
   try {
@@ -122,18 +142,28 @@ app.post(`/customer/submitCustomers`, async (req, res, next) => {
 // Customer Get
 app.get(`/customer/getCustomers`, async (req, res, next) => {
   try {
-    const customers = await Customer.find().sort({ name: 1 });
+    const query = (req.query.q || "").toString().toLowerCase();
+    let queryConditions = {};
+
+    if (query) {
+      queryConditions = {
+        $or: [
+          { name: { $regex: query, $options: "i" } }, 
+          { phonenumber: { $regex: query, $options: "i" } }, 
+        ],
+      };
+    }
+
+    const customers = await Customer.find(queryConditions).sort({ name: 1 });
     res.status(200).json({
       success: true,
       customers,
       total: customers.length,
     });
   } catch (error) {
-
     next(error);
   }
 });
-
 
 // Billing Routes
 app.post(`/billing/submitItems`, async (req, res, next) => {
@@ -216,6 +246,32 @@ app.delete(`/billing/submitItems/:itemId`, async(req, res, next)=>{
     next(error);
   }
 })
+
+// Bill Routes
+app.post(`/bill/saveBill`, async (req, res, next) => {
+  try {
+    const { error } = billSchema.validate(req.body);
+    if (error) return sendError(res, 400, error.details[0].message);
+
+    const { customerId, items, total } = req.body;
+
+    const newBill = new Bill({
+      customerId,
+      items,
+      total,
+    });
+    await newBill.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Bill saved successfully",
+      billId: newBill._id,
+    });
+  } catch (error) {
+    if (error.name === "ValidationError") return sendError(res, 400, error.message);
+    next(error);
+  }
+});
 
 // Global Error Handler
 app.use((err, req, res, next) => {
