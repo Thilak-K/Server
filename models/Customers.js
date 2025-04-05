@@ -57,7 +57,7 @@ const customerSchema = new mongoose.Schema(
   },
   {
       timestamps: true,
-      collection: "Customer", 
+      collection: "Customers", 
     
   }
 );
