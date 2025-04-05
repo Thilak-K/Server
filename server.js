@@ -202,7 +202,7 @@ app.put(`/billing/updateItem`, async (req, res, next) => {
 });
 app.delete(`/billing/deleteItem`, async(req, res, next)=>{
   try{
-    const {itemId} = req.body;
+    const {itemId} = req.params;
     const deletedItem = await Billing.findOneAndDelete({itemId});
     if(!deletedItem)
        return sendError(res, 404, "Item not found");
