@@ -200,7 +200,23 @@ app.put(`/billing/updateItem`, async (req, res, next) => {
     next(error);
   }
 });
-
+app.delete(`/billing/deleteItem`, async(req, res, next)=>{
+  try{
+    const {itemId} = req.body;
+    const deletedItem = await Billing.findOneAndDelete({itemId});
+    if(!deletedItem)
+       return sendError(res, 404, "Item not found");
+  
+  res.status(200).json({
+    success: true,
+    message: "Item deleted successfully",
+  });
+}
+  catch (error) {
+    
+    next(error);
+  }
+})
 
 // Global Error Handler
 app.use((err, req, res, next) => {
