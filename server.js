@@ -200,7 +200,7 @@ app.put(`/billing/updateItem`, async (req, res, next) => {
     next(error);
   }
 });
-app.delete(`/billing/deleteItem/itemId`, async(req, res, next)=>{
+app.delete(`/billing/submitItems/:itemId`, async(req, res, next)=>{
   try{
     const {itemId} = req.params;
     const deletedItem = await Billing.findOneAndDelete({itemId});
