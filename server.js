@@ -57,7 +57,7 @@ const sendError = (res, status, message) => {
 // Customer Schema Validation with Joi
 const customerSchema = Joi.object({
   customerId: Joi.string()
-    .pattern(/^CUST-[a-zA-Z0-9]{12}$/)
+    .pattern(/^CUST-[A-Z]{3}-\d{2}\/\d{2}\/\d{4}-\d{4}$/)
     .required()
     .messages({
       "string.pattern.base": "Customer ID must follow format CUST- followed by 12 alphanumeric characters",
@@ -93,7 +93,7 @@ const billingSchema = Joi.object({
 // Bill Schema Validation with Joi
 const billSchema = Joi.object({
   customerId: Joi.string()
-    .pattern(/^CUST-[a-zA-Z0-9]{12}$/)
+    .pattern(/^CUST-[A-Z]{3}-\d{2}\/\d{2}\/\d{4}-\d{4}$/)
     .required(),
   items: Joi.array()
     .items(
