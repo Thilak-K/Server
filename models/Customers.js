@@ -7,7 +7,7 @@ const customerSchema = new mongoose.Schema(
       required: [true, "Customer ID is required"],
       unique: true,
       trim: true,
-      match: [/^CUST-[a-zA-Z0-9]{12}$/, "Customer ID must follow the format CUST- followed by 12 alphanumeric characters"],
+      match: [/^CUST-[A-Z]{3}-\d{2}\/\d{2}\/\d{4}-\d{4}$/, "Customer ID must follow the format CUST-XXX-dd/mm/yyyy-XXXX where XXX is 3 uppercase letters, dd/mm/yyyy is the date, and XXXX is 4 digits"],
     },
     name: {
       type: String,
