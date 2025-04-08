@@ -9,7 +9,6 @@ const Joi = require("joi");
 const Customer = require("./models/Customers.js");
 const Billing = require("./models/Billing.js");
 const Bill =require("./models/Bill.js");
-c
 
 // Validate environment variables
 const env = cleanEnv(process.env, {
