@@ -165,6 +165,84 @@ app.get(`/customer/getCustomers`, async (req, res, next) => {
   }
 });
 
+// customer delete 
+app.delete(`/customer/deleteCustomer/:customerId`, async (req, res, next) => {
+  try{
+    const { customerId } = req.params;
+    const deletedCustomer = await Customer.findOneAndDelete({ customerId });
+    if (!deletedCustomer) 
+      return sendError(res, 404, "Customer not found");
+
+    res.status(200).json({
+      success: true,
+      message: "Customer deleted successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+// customer favorite 
+app.put(`/customer/toggleFavorite/:customerId`, async (req, res, next) => {
+  try {
+    const { customerId } = req.params;
+
+    const customer = await Customer.findOne({ customerId });
+    if (!customer) return sendError(res, 404, "Customer not found");
+
+    // Toggle the favorite status
+    customer.favorite = !customer.favorite;
+    await customer.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Customer ${customer.favorite ? "added to" : "removed from"} favorites`,
+      customerId: customer.customerId,
+      favorite: customer.favorite,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.put(`/customer/updateCustomer/:customerId`, async (req, res, next)=>{
+  try{
+    const{customerId} =req.params;
+    const{name, phonenumber, address, town, district, state, maritalStatus} = req.body;
+
+     const schema =Joi.object({
+  
+      name:Joi.string().min(2).max(100).required(),
+      phonenumber:Joi.string().pattern(/^\+91-[6-9]\d{9}$/).required(),
+      address:Joi.string().min(5).max(500).required(),
+      town:Joi.string().min(2).max(100).allow("").optional(),
+      district:Joi.string().max(100).default("Dindigul"),
+      state:Joi.string().max(100).default("Tamil Nadu"),
+      maritalStatus:Joi.string().max(50).default("Married")
+     });
+     const {error} =schema.validate(req.body);
+     if(error) return sendError(res, 400, error.details[0].message);
+
+     const existingPhone = await Customer.findOne({phonenumber, customerId: {$ne: customerId}});
+     if(existingPhone) return sendError(res, 409, "Phone number already exists");
+
+     const updatedCustomer = await Customer.findOneAndUpdate(
+    { customerId },
+    { name, phonenumber, address, town, district, state, maritalStatus, updatedAt: Date.now() },
+    { new: true, runValidators: true }
+  );
+   if(!updatedCustomer) return sendError(res, 404, "Customer not found");
+   res.status(200).json({
+    success: true,
+    message: "Customer updated successfully",
+    customer: updatedCustomer,
+   });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Billing Routes
 app.post(`/billing/submitItems`, async (req, res, next) => {
   try {

@@ -54,6 +54,10 @@ const customerSchema = new mongoose.Schema(
       trim: true,
       maxlength: [50, "Marital status cannot exceed 50 characters"],
     },
+    favorite: {
+      type: Boolean,
+      default: false,
+    }
   },
   {
       timestamps: true,
