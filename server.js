@@ -8,7 +8,7 @@ const { cleanEnv, str, num } = require("envalid");
 const Joi = require("joi");
 const Customer = require("./models/Customers.js");
 const Billing = require("./models/Billing.js");
-const Bill =require("./models/Bill.js");
+const Bill = require("./models/Bill.js");
 
 // Validate environment variables
 const env = cleanEnv(process.env, {
@@ -71,8 +71,7 @@ const customerSchema = Joi.object({
   town: Joi.string().min(2).max(100).allow("").optional(),
   district: Joi.string().max(100).default("Dindigul"),
   state: Joi.string().max(100).default("Tamil Nadu"),
-  maritalStatus: Joi.string().max(50).default("Married")
-
+  maritalStatus: Joi.string().max(50).default("Married"),
 });
 
 // Billing Schema Validation with Joi
@@ -85,7 +84,6 @@ const billingSchema = Joi.object({
     }),
   name: Joi.string().min(2).max(100).required(),
   price: Joi.number().min(0).required(),
-
 });
 
 // Bill Schema Validation with Joi
@@ -106,7 +104,7 @@ const billSchema = Joi.object({
     .required(),
   total: Joi.number().min(0).required(),
   paidAmount: Joi.number().min(0).default(0),
-  balance: Joi.number().min(0).optional(),
+  balance: Joi.number().optional(), // Allow positive or negative balance
   paymentStatus: Joi.string()
     .valid("Pending", "Partially Paid", "Paid")
     .default("Pending"),
@@ -151,8 +149,8 @@ app.get(`/customer/getCustomers`, async (req, res, next) => {
     if (query) {
       queryConditions = {
         $or: [
-          { name: { $regex: query, $options: "i" } }, 
-          { phonenumber: { $regex: query, $options: "i" } }, 
+          { name: { $regex: query, $options: "i" } },
+          { phonenumber: { $regex: query, $options: "i" } },
         ],
       };
     }
@@ -168,12 +166,12 @@ app.get(`/customer/getCustomers`, async (req, res, next) => {
   }
 });
 
-// customer delete 
+// Customer Delete
 app.delete(`/customer/deleteCustomer/:customerId`, async (req, res, next) => {
-  try{
+  try {
     const { customerId } = req.params;
     const deletedCustomer = await Customer.findOneAndDelete({ customerId });
-    if (!deletedCustomer) 
+    if (!deletedCustomer)
       return sendError(res, 404, "Customer not found");
 
     res.status(200).json({
@@ -185,8 +183,7 @@ app.delete(`/customer/deleteCustomer/:customerId`, async (req, res, next) => {
   }
 });
 
-
-// customer favorite 
+// Customer Favorite
 app.put(`/customer/toggleFavorite/:customerId`, async (req, res, next) => {
   try {
     const { customerId } = req.params;
@@ -209,38 +206,40 @@ app.put(`/customer/toggleFavorite/:customerId`, async (req, res, next) => {
   }
 });
 
-app.put(`/customer/updateCustomer/:customerId`, async (req, res, next)=>{
-  try{
-    const{customerId} =req.params;
-    const{name, phonenumber, address, town, district, state, maritalStatus} = req.body;
+app.put(`/customer/updateCustomer/:customerId`, async (req, res, next) => {
+  try {
+    const { customerId } = req.params;
+    const { name, phonenumber, address, town, district, state, maritalStatus } = req.body;
 
-     const schema =Joi.object({
-  
-      name:Joi.string().min(2).max(100).required(),
-      phonenumber:Joi.string().pattern(/^\+91-[6-9]\d{9}$/).required(),
-      address:Joi.string().min(5).max(500).required(),
-      town:Joi.string().min(2).max(100).allow("").optional(),
-      district:Joi.string().max(100).default("Dindigul"),
-      state:Joi.string().max(100).default("Tamil Nadu"),
-      maritalStatus:Joi.string().max(50).default("Married")
-     });
-     const {error} =schema.validate(req.body);
-     if(error) return sendError(res, 400, error.details[0].message);
+    const schema = Joi.object({
+      name: Joi.string().min(2).max(100).required(),
+      phonenumber: Joi.string().pattern(/^\+91-[6-9]\d{9}$/).required(),
+      address: Joi.string().min(5).max(500).required(),
+      town: Joi.string().min(2).max(100).allow("").optional(),
+      district: Joi.string().max(100).default("Dindigul"),
+      state: Joi.string().max(100).default("Tamil Nadu"),
+      maritalStatus: Joi.string().max(50).default("Married"),
+    });
+    const { error } = schema.validate(req.body);
+    if (error) return sendError(res, 400, error.details[0].message);
 
-     const existingPhone = await Customer.findOne({phonenumber, customerId: {$ne: customerId}});
-     if(existingPhone) return sendError(res, 409, "Phone number already exists");
+    const existingPhone = await Customer.findOne({
+      phonenumber,
+      customerId: { $ne: customerId },
+    });
+    if (existingPhone) return sendError(res, 409, "Phone number already exists");
 
-     const updatedCustomer = await Customer.findOneAndUpdate(
-    { customerId },
-    { name, phonenumber, address, town, district, state, maritalStatus, updatedAt: Date.now() },
-    { new: true, runValidators: true }
-  );
-   if(!updatedCustomer) return sendError(res, 404, "Customer not found");
-   res.status(200).json({
-    success: true,
-    message: "Customer updated successfully",
-    customer: updatedCustomer,
-   });
+    const updatedCustomer = await Customer.findOneAndUpdate(
+      { customerId },
+      { name, phonenumber, address, town, district, state, maritalStatus, updatedAt: Date.now() },
+      { new: true, runValidators: true }
+    );
+    if (!updatedCustomer) return sendError(res, 404, "Customer not found");
+    res.status(200).json({
+      success: true,
+      message: "Customer updated successfully",
+      customer: updatedCustomer,
+    });
   } catch (error) {
     next(error);
   }
@@ -311,22 +310,21 @@ app.put(`/billing/updateItem`, async (req, res, next) => {
     next(error);
   }
 });
-app.delete(`/billing/submitItems/:itemId`, async(req, res, next)=>{
-  try{
-    const {itemId} = req.params;
-    const deletedItem = await Billing.findOneAndDelete({itemId});
-    if(!deletedItem)
-       return sendError(res, 404, "Item not found");
-  res.status(200).json({
-    success: true,
-    message: "Item deleted successfully",
-  });
-}
-  catch (error) {
-    
+
+app.delete(`/billing/submitItems/:itemId`, async (req, res, next) => {
+  try {
+    const { itemId } = req.params;
+    const deletedItem = await Billing.findOneAndDelete({ itemId });
+    if (!deletedItem)
+      return sendError(res, 404, "Item not found");
+    res.status(200).json({
+      success: true,
+      message: "Item deleted successfully",
+    });
+  } catch (error) {
     next(error);
   }
-})
+});
 
 // Bill Routes
 app.post(`/bill/saveBill`, async (req, res, next) => {
@@ -350,7 +348,7 @@ app.post(`/bill/saveBill`, async (req, res, next) => {
     }
 
     // Calculate balance and determine payment status
-    const balance = total - paidAmount;
+    const balance = total - paidAmount; // Allow positive or negative balance
     let paymentStatus = 'Pending';
     if (paidAmount >= total) {
       paymentStatus = 'Paid';
@@ -438,35 +436,41 @@ app.get(`/bill/getBills/:customerId`, async (req, res, next) => {
 });
 
 // Update Payment Details for a Bill
-app.put(`/bill/updatePayment/:billId`, async (req, res, next) => {
+app.put('/bill/updatePayment/:billId', async (req, res, next) => {
   try {
     const { billId } = req.params;
     const { paidAmount } = req.body;
 
+    // Validate paidAmount
     const paymentSchema = Joi.object({
-      paidAmount: Joi.number().min(0).required(),
+      paidAmount: Joi.number().required(),
     });
 
     const { error } = paymentSchema.validate(req.body);
     if (error) return sendError(res, 400, error.details[0].message);
 
     const bill = await Bill.findById(billId);
-    if (!bill) return sendError(res, 404, "Bill not found");
+    if (!bill) return sendError(res, 404, 'Bill not found');
 
+    // Update fields
     bill.paidAmount = paidAmount;
-    bill.balance = bill.total - paidAmount;
+    bill.balance = bill.total - paidAmount; // Positive if underpaid, negative if overpaid
     bill.paymentStatus =
-      paidAmount >= bill.total ? "Paid" : paidAmount > 0 ? "Partially Paid" : "Pending";
+      paidAmount >= bill.total ? 'Paid' : paidAmount > 0 ? 'Partially Paid' : 'Pending';
 
     await bill.save();
 
     res.status(200).json({
       success: true,
-      message: "Payment details updated successfully",
+      message: 'Payment details updated successfully',
       bill,
     });
   } catch (error) {
-    next(error);
+    console.error('Update Payment Error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal Server Error',
+    });
   }
 });
 

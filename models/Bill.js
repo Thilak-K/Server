@@ -35,7 +35,8 @@ const billSchema = new mongoose.Schema({
     default: function () {
       return this.total - this.paidAmount;
     },
-    min: 0,
+    default:0,
+    
   },
   paymentStatus: {
     type: String,
