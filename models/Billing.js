@@ -6,6 +6,7 @@ const billingSchema = new mongoose.Schema({
     type: String,
     required: true,
     unique: true,
+    match: /^ITEM-[A-Z0-9]{7}$/,
   },
   name: {
     type: String,

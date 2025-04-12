@@ -340,13 +340,22 @@ app.post(`/bill/saveBill`, async (req, res, next) => {
     const customer = await Customer.findOne({ customerId });
     if (!customer) return sendError(res, 404, "Customer not found");
 
+    // Validate itemIds exist
+    const itemIds = items.map(item => item.itemId);
+    const billingItems = await Billing.find({ itemId: { $in: itemIds } });
+    const foundItemIds = new Set(billingItems.map(item => item.itemId));
+    const invalidItems = itemIds.filter(id => !foundItemIds.has(id));
+    if (invalidItems.length > 0) {
+      return sendError(res, 400, `Invalid item IDs: ${invalidItems.join(', ')}`);
+    }
+
     // Calculate balance and determine payment status
     const balance = total - paidAmount;
-    let paymentStatus = "Pending";
+    let paymentStatus = 'Pending';
     if (paidAmount >= total) {
-      paymentStatus = "Paid";
+      paymentStatus = 'Paid';
     } else if (paidAmount > 0) {
-      paymentStatus = "Partially Paid";
+      paymentStatus = 'Partially Paid';
     }
 
     const newBill = new Bill({
@@ -361,11 +370,12 @@ app.post(`/bill/saveBill`, async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      message: "Bill saved successfully",
+      message: 'Bill saved successfully',
       billId: newBill._id,
     });
   } catch (error) {
-    if (error.name === "ValidationError") return sendError(res, 400, error.message);
+    console.error('Error in /bill/saveBill:', error.message, error.stack);
+    if (error.name === 'ValidationError') return sendError(res, 400, error.message);
     next(error);
   }
 });
@@ -375,16 +385,54 @@ app.get(`/bill/getBills/:customerId`, async (req, res, next) => {
   try {
     const { customerId } = req.params;
 
-    const bills = await Bill.find({ customerId })
-      .populate("items.itemId", "name price") // Populate item details
-      .sort({ date: -1 }); // Sort by latest first
+    // Validate customerId format
+    const customerIdSchema = Joi.string()
+      .pattern(/^CUST-[A-Z]{3}-\d{2}\/\d{2}\/\d{4}-\d{4}$/)
+      .required();
+    const { error } = customerIdSchema.validate(customerId);
+    if (error) return sendError(res, 400, 'Invalid customer ID format');
+
+    // Check if customer exists
+    const customer = await Customer.findOne({ customerId });
+    if (!customer) {
+      return res.status(200).json({
+        success: true,
+        bills: [],
+        total: 0,
+        message: 'Customer not found',
+      });
+    }
+
+    // Fetch bills
+    const bills = await Bill.find({ customerId }).sort({ date: -1 });
+
+    // Manually fetch item details
+    const itemIds = [...new Set(bills.flatMap(bill => bill.items.map(item => item.itemId)))];
+    const billingItems = await Billing.find({ itemId: { $in: itemIds } });
+    const itemMap = new Map(billingItems.map(item => [item.itemId, item]));
+
+    // Enrich bills with item details
+    const enrichedBills = bills.map(bill => {
+      const items = bill.items.map(item => {
+        const billingItem = itemMap.get(item.itemId);
+        return {
+          ...item.toObject(),
+          itemId: billingItem ? { itemId: billingItem.itemId, name: billingItem.name, price: billingItem.price } : null,
+        };
+      }).filter(item => item.itemId !== null); // Remove invalid items
+      return {
+        ...bill.toObject(),
+        items,
+      };
+    });
 
     res.status(200).json({
       success: true,
-      bills,
-      total: bills.length,
+      bills: enrichedBills,
+      total: enrichedBills.length,
     });
   } catch (error) {
+    console.error(`Error in /bill/getBills/${req.params.customerId}:`, error.message, error.stack);
     next(error);
   }
 });
@@ -419,6 +467,23 @@ app.put(`/bill/updatePayment/:billId`, async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+});
+
+app.get('/debug/billing/:itemId', async (req, res, next) => {
+  try {
+    const { itemId } = req.params;
+    const item = await Billing.findOne({ itemId });
+    res.json({
+      success: true,
+      item: item || null,
+    });
+  } catch (error) {
+    console.error(`Error in /debug/billing/${req.params.itemId}:`, error.message, error.stack);
+    res.json({
+      success: false,
+      error: error.message,
+    });
   }
 });
 
