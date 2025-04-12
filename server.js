@@ -105,6 +105,11 @@ const billSchema = Joi.object({
     .min(1)
     .required(),
   total: Joi.number().min(0).required(),
+  paidAmount: Joi.number().min(0).default(0),
+  balance: Joi.number().min(0).optional(),
+  paymentStatus: Joi.string()
+    .valid("Pending", "Partially Paid", "Paid")
+    .default("Pending"),
 });
 
 // Customer Routes
@@ -329,12 +334,28 @@ app.post(`/bill/saveBill`, async (req, res, next) => {
     const { error } = billSchema.validate(req.body);
     if (error) return sendError(res, 400, error.details[0].message);
 
-    const { customerId, items, total } = req.body;
+    const { customerId, items, total, paidAmount = 0 } = req.body;
+
+    // Validate customer exists
+    const customer = await Customer.findOne({ customerId });
+    if (!customer) return sendError(res, 404, "Customer not found");
+
+    // Calculate balance and determine payment status
+    const balance = total - paidAmount;
+    let paymentStatus = "Pending";
+    if (paidAmount >= total) {
+      paymentStatus = "Paid";
+    } else if (paidAmount > 0) {
+      paymentStatus = "Partially Paid";
+    }
 
     const newBill = new Bill({
       customerId,
       items,
       total,
+      paidAmount,
+      balance,
+      paymentStatus,
     });
     await newBill.save();
 
@@ -345,6 +366,58 @@ app.post(`/bill/saveBill`, async (req, res, next) => {
     });
   } catch (error) {
     if (error.name === "ValidationError") return sendError(res, 400, error.message);
+    next(error);
+  }
+});
+
+// Fetch Bills by Customer ID
+app.get(`/bill/getBills/:customerId`, async (req, res, next) => {
+  try {
+    const { customerId } = req.params;
+
+    const bills = await Bill.find({ customerId })
+      .populate("items.itemId", "name price") // Populate item details
+      .sort({ date: -1 }); // Sort by latest first
+
+    res.status(200).json({
+      success: true,
+      bills,
+      total: bills.length,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update Payment Details for a Bill
+app.put(`/bill/updatePayment/:billId`, async (req, res, next) => {
+  try {
+    const { billId } = req.params;
+    const { paidAmount } = req.body;
+
+    const paymentSchema = Joi.object({
+      paidAmount: Joi.number().min(0).required(),
+    });
+
+    const { error } = paymentSchema.validate(req.body);
+    if (error) return sendError(res, 400, error.details[0].message);
+
+    const bill = await Bill.findById(billId);
+    if (!bill) return sendError(res, 404, "Bill not found");
+
+    bill.paidAmount = paidAmount;
+    bill.balance = bill.total - paidAmount;
+    bill.paymentStatus =
+      paidAmount >= bill.total ? "Paid" : paidAmount > 0 ? "Partially Paid" : "Pending";
+
+    await bill.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Payment details updated successfully",
+      bill,
+    });
+  } catch (error) {
     next(error);
   }
 });

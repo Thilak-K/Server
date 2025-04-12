@@ -4,14 +4,14 @@ const billSchema = new mongoose.Schema({
   customerId: {
     type: String,
     required: true,
-    ref: "Customer", // Reference to Customers collection
+    ref: "Customer",
   },
   items: [
     {
       itemId: {
         type: String,
         required: true,
-        ref: "Billing", // Reference to Billing collection
+        ref: "Billing",
       },
       quantity: {
         type: Number,
@@ -24,6 +24,23 @@ const billSchema = new mongoose.Schema({
     type: Number,
     required: true,
     min: 0,
+  },
+  paidAmount: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  balance: {
+    type: Number,
+    default: function () {
+      return this.total - this.paidAmount;
+    },
+    min: 0,
+  },
+  paymentStatus: {
+    type: String,
+    enum: ["Pending", "Partially Paid", "Paid"],
+    default: "Pending",
   },
   date: {
     type: Date,
